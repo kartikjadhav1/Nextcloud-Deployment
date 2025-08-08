@@ -8,6 +8,19 @@ The setup also features **LVM-based persistent storage** mounted at `/storage` f
 
 ---
 
+## Architecture Overview
+
+![High-level architecture](Architecture.png)
+
+- **AWS VPC**: Isolated network (CIDR: 10.0.0.0/16) with a public subnet (10.0.1.0/24), Internet Gateway, and routing table.
+- **EC2 Instance**: Deployed within the VPC, running Ubuntu 22.04.
+- **Storage**: LVM-backed volume mounted at `/storage` for scalability and persistence.
+- **LAMP Stack**: Linux + Apache + MySQL/MariaDB + PHP 8.1 powering Nextcloud.
+- **Security Groups**: Controlled access on ports 22 (SSH), 80 (HTTP), 443 (HTTPS).
+- **Nextcloud Setup**: Installed via zip, configured under Apache with proper permissions and trusted domains.
+
+---
+
 ## 🛠️ Features
 - 🛡 **Custom AWS VPC** for secure, isolated networking.
 - ☁ **Nextcloud** for private file storage and collaboration.
@@ -42,79 +55,72 @@ A **Custom AWS VPC** was created instead of using the default one to have full c
 
 ---
 
-## 🚀 Deployment Steps
+## 🧭 Project Flow
 
-### 1️⃣ Launch EC2 in Custom VPC
-- OS: **Ubuntu 22.04 LTS**
-- Instance type: t2.micro (free tier friendly)
-- Storage: Root + EBS volume for LVM
+### 1. 🚀 Launch EC2
 
-### 2️⃣ Install LAMP Stack
-\`\`\`bash
+- AMI: Ubuntu Server 22.04 LTS
+- Open ports: **22 (SSH), 80 (HTTP), 443 (HTTPS)**
+
+### 2. 🔐 Connect via SSH
+```bash
+ssh -i "key.pem" ubuntu@your-public-ip
+```
+
+### 3. ⚙️ Install LAMP Stack
+```bash
 sudo apt update && sudo apt upgrade -y
-sudo apt install apache2 mysql-server php libapache2-mod-php php-mysql php-xml php-zip php-curl php-mbstring php-gd php-intl unzip -y
-\`\`\`
+sudo apt install apache2 mariadb-server php php-mysql php-gd php-xml php-curl php-mbstring php-zip php-intl php-bcmath php-gmp php-imagick unzip libapache2-mod-php -y
+```
 
-### 3️⃣ Configure LVM Storage
-\`\`\`bash
-sudo pvcreate /dev/xvdf
-sudo vgcreate nxtcld /dev/xvdf
-sudo lvcreate -l 100%FREE -n lvol0 nxtcld
-sudo mkfs.ext4 /dev/nxtcld/lvol0
-sudo mkdir /storage
-echo '/dev/nxtcld/lvol0 /storage ext4 defaults 0 2' | sudo tee -a /etc/fstab
-sudo mount -a
-\`\`\`
+### 4. 🔒 Secure MariaDB
+```bash
+sudo mysql_secure_installation
+```
 
-### 4️⃣ Install Nextcloud
-\`\`\`bash
-wget https://download.nextcloud.com/server/releases/nextcloud-27.1.0.zip
-unzip nextcloud-27.1.0.zip
+Login and configure Nextcloud database:
+```sql
+CREATE DATABASE nextcloud;
+CREATE USER 'nextclouduser'@'localhost' IDENTIFIED BY 'yourpassword';
+GRANT ALL PRIVILEGES ON nextcloud.* TO 'nextclouduser'@'localhost';
+FLUSH PRIVILEGES;
+```
+
+### 5. ⬇️ Download & Configure Nextcloud
+```bash
+cd /tmp
+wget https://download.nextcloud.com/server/releases/latest.zip
+unzip latest.zip
 sudo mv nextcloud /var/www/html/
 sudo chown -R www-data:www-data /var/www/html/nextcloud
 sudo chmod -R 755 /var/www/html/nextcloud
-\`\`\`
+```
 
-### 5️⃣ Configure Apache
-\`\`\`apache
-<VirtualHost *:80>
-    ServerAdmin admin@example.com
-    DocumentRoot /var/www/html/nextcloud
-    ServerName your_domain_or_ip
-
-    <Directory /var/www/html/nextcloud>
-        Require all granted
-        AllowOverride All
-        Options FollowSymLinks MultiViews
-    </Directory>
-
-    ErrorLog ${APACHE_LOG_DIR}/error.log
-    CustomLog ${APACHE_LOG_DIR}/access.log combined
-</VirtualHost>
-\`\`\`
-\`\`\`bash
-sudo a2ensite nextcloud.conf
-sudo a2enmod rewrite headers env dir mime
+Enable required modules and restart Apache:
+```bash
+sudo a2enmod rewrite headers env dir mime setenvif
 sudo systemctl restart apache2
-\`\`\`
+```
 
-### 6️⃣ Fix “Untrusted Domain” Error
-\`\`\`bash
-sudo nano /var/www/html/nextcloud/config/config.php
-\`\`\`
-Add:
-\`\`\`php
-'trusted_domains' =>
-  array (
-    0 => 'your-ec2-public-ip',
-    1 => 'your-domain.com',
-  ),
-\`\`\`
+### 6. 💾 Add External Storage Using LVM
+```bash
+sudo pvcreate /dev/xvdf
+sudo vgcreate nxtcld /dev/xvdf
+sudo lvcreate -L 20G -n lvol0 nxtcld
+sudo mkfs.ext4 /dev/nxtcld/lvol0
+sudo mkdir /storage
+sudo mount /dev/nxtcld/lvol0 /storage
+echo '/dev/nxtcld/lvol0 /storage ext4 defaults 0 2' | sudo tee -a /etc/fstab
+```
 
----
+### 7. 🌐 Final Setup via Web
+- Visit `http://<your-public-ip>/nextcloud`
+- Fill in admin credentials
+- Use `/storage` as data folder path
+- Add database info
 
 ## 📸 Screenshots
-
+![first](screenshots/screen.png)
 ---
 
 ## 📜 License
@@ -122,3 +128,4 @@ Licensed under the **MIT License** – feel free to use and modify.
 
 ---
 💡 *This project is a complete beginner-to-intermediate guide for deploying a secure, production-ready Nextcloud instance on AWS.*
+
