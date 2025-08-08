@@ -120,7 +120,12 @@ echo '/dev/nxtcld/lvol0 /storage ext4 defaults 0 2' | sudo tee -a /etc/fstab
 - Add database info
 
 ## 📸 Screenshots
-![first](screenshots/screen.png)
+![VPC](screenshots/VPC.png)
+![EC2](screenshots/EC2.png)
+![SSH](ssh-into-server.png)
+![first](screenshots/nextcloud1.png)
+![first](screenshots/nextcloud2.png)
+![first](screenshots/nextcloud3.png)
 ---
 
 ## 📜 License
@@ -128,4 +133,5 @@ Licensed under the **MIT License** – feel free to use and modify.
 
 ---
 💡 *This project is a complete beginner-to-intermediate guide for deploying a secure, production-ready Nextcloud instance on AWS.*
+
 
